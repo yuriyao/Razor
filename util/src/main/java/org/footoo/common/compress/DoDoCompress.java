@@ -30,9 +30,9 @@ import org.footoo.common.tools.ByteUtil;
  */
 public class DoDoCompress implements Compress {
     /** 数据分段的大小 */
-    private static final int    FRAGMENT_LENGTH = 1 * 1024 * 1024;
+    public static final int     FRAGMENT_LENGTH = 64 * 1024;
     /** 偏移的bit位数 */
-    private static final int    OFFSET_BIT_LEN  = 11;
+    private static final int    OFFSET_BIT_LEN  = 16;
     /** 长度的bit位数 */
     private static final int    LENGTH_BIT_LEN  = 5;
     /** 压缩字典存放的数据的长度 */
@@ -44,6 +44,7 @@ public class DoDoCompress implements Compress {
     /** 元数据标志 */
     private static final byte[] NORMAL_MARK     = new byte[] { 0x00 };
     /** 日志工具 */
+    @SuppressWarnings("unused")
     private static final Logger logger          = LoggerFactory.getLogger(DoDoCompress.class);
 
     /** 
@@ -181,14 +182,14 @@ public class DoDoCompress implements Compress {
                     if (bitsSequence.remains() < OFFSET_BIT_LEN + LENGTH_BIT_LEN) {
                         break;
                     }
-                    int offset = ByteUtil.toShort(bitsSequence.getBits(OFFSET_BIT_LEN), 0);
+                    int offset = ByteUtil.toShort(bitsSequence.getBits(OFFSET_BIT_LEN), 0) & 0xFFFF;
                     int len = (bitsSequence.getBits(LENGTH_BIT_LEN)[0] & 0xFF) + DICT_ENTRY_LEN;
                     //数据过长，不合法
                     if (position + len > FRAGMENT_LENGTH) {
                         throw new InvalidCompressedDataException();
                     }
-                    logger.debug("offset=[" + offset + "],len=[" + len + "], position=[" + position
-                                 + "]");
+                    /*logger.debug("offset=[" + offset + "],len=[" + len + "], position=[" + position
+                                 + "]");*/
                     //
 
                     System.arraycopy(buffer, offset, buffer, position, len);
