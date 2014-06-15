@@ -95,6 +95,7 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
             //写入第一个节点的位置
             output.writeLong(offset);
             logger.info("最后一个节点的位置:" + offset);
+            this.stateChanged(CompressStateListener.COMPRESS_OK);
         } catch (RazorException e) {
             this.stateChanged(CompressStateListener.COMPRESS_FAIL);
             throw e;
@@ -140,6 +141,8 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
             //创建解压的根目录
             SystemInfoTool.createDirIfNotExist(uncompressedDir);
             uncompressFiles(root, input);
+            //解压完成
+            stateChanged(CompressStateListener.COMPRESS_OK);
         } catch (FileNotFoundException e) {
             logger.error(e, "无法打开文件");
             throw new RazorException(RazorStandError.FILE_NOT_EXISTS, e.getMessage());
@@ -375,9 +378,18 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
     private class UncompressFiles implements WideSearchCallBack {
         /** 输入文件 */
         private RandomAccessFile in;
+        /** 所有的文件 */
+        private int              totalNumber = 0;
+        /** 已解压的文件数量 */
+        private int              number      = 0;
+        /** 上一次解压的比例 */
+        private int              process     = 0;
 
-        public UncompressFiles(RandomAccessFile in) {
+        public UncompressFiles(RandomAccessFile in, int totalNumber) {
             this.in = in;
+            this.totalNumber = totalNumber > 0 ? totalNumber : 1;
+            logger.info("total Number" + totalNumber);
+
         }
 
         @Override
@@ -398,6 +410,14 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
                 }
                 //进行解压
                 uncompress(in, child, fileEntry.getFullFileName());
+                number++;
+                int newPorcess = number * 100 / totalNumber;
+                if (newPorcess != process) {
+                    processChanged(newPorcess);
+                    process = newPorcess;
+
+                }
+                logger.info("number:" + number);
             }
         }
     }
@@ -410,7 +430,7 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
      * @throws RazorException
      */
     private void uncompressFiles(FileEntry root, RandomAccessFile in) throws RazorException {
-        wideSearch(root, new UncompressFiles(in));
+        wideSearch(root, new UncompressFiles(in, computeNumber(root)));
     }
 
     /**
@@ -487,7 +507,7 @@ public abstract class RazorCompress implements CompressProcessListener, Compress
 
         @Override
         public void findOne(FileEntry fileEntry) {
-            if (!fileEntry.getFile().isDirectory()) {
+            if (fileEntry.isNormalFile()) {
                 number++;
             }
         }
